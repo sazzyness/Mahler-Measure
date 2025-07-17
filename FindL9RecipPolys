@@ -15,12 +15,14 @@ def findMM(p):
             mm = new*mm
             
     return(mm)
-
 # Function to find length 9 reciprocal multiple of a given polynomial
 # Inputs: 
 # p: a reciprocal, non-cyclotomic polynomial
 # printMM: Boolean, output Mahler measure with polynomial? Yes = 1, No = 0
 def FindL9RecipPolys(p,printMM):
+    import time
+    start = time.time()
+    
     # Find cyclotomic factors of p
     p2 = p.subs(z=-z)
     p3 = p.subs(z=z^2)
@@ -71,4 +73,6 @@ def FindL9RecipPolys(p,printMM):
                                         else:
                                             print(s(z))
 
-    print('program end')  
+    end = time.time()
+    timeTaken = end - start
+    print('program end, time taken: ', timeTaken)  
