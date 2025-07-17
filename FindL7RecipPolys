@@ -21,6 +21,9 @@ def findMM(p):
 # p: a reciprocal, non-cyclotomic polynomial
 # printMM: Boolean, output Mahler measure with polynomial? Yes = 1, No = 0
 def FindL7RecipPolys(p,printMM):
+    import time
+    start = time.time()
+    
     # Find cyclotomic factors of p
     p2 = p.subs(z=-z)
     p3 = p.subs(z=z^2)
@@ -67,4 +70,6 @@ def FindL7RecipPolys(p,printMM):
                                     print(s(z))
 
 
-    print('program end')  
+    end = time.time()
+    timeTaken = end - start
+    print('program end, time taken:', timeTaken)   
