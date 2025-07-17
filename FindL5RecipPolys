@@ -1,7 +1,29 @@
 # Working in integer polynomial ring, with variable z
 R.<z> = PolynomialRing(ZZ)
 
-def FindL5RecipPolys(p):
+# Function to find Mahler measure of p
+def findMM(p):
+    # Find roots
+    g = p.roots(CC)
+    size = len(g)
+    mm = 1
+
+    # Compute Mahler measure
+    for i in range(size):
+        new = abs(g[i][0])
+        if new > 1:
+            mm = new*mm
+            
+    return(mm)
+
+# Function to find length 5 reciprocal multiple of a given polynomial
+# Inputs: 
+# p: a reciprocal, non-cyclotomic polynomial
+# printMM: Boolean, output Mahler measure with polynomial? Yes = 1, No = 0
+def FindL5RecipPolys(p, printMM):
+    import time
+    start = time.time()
+    
     # Find cyclotomic factors of p
     p2 = p.subs(z=-z)
     p3 = p.subs(z=z^2)
@@ -34,5 +56,11 @@ def FindL5RecipPolys(p):
                     s(z) = z^n + e1*z^(n-d1-1) + e2*z^(n-d1-1-d2) + e1*z^(n-d1-1-2*d2) + 1
                     # If it is a multiple of the irreducible, return polynomial
                     if gcd(min_p(z), s(z)) != 1:
-                        print(s(z))
-    print('program end')  
+                        if printMM:
+                            mm = findMM(s)
+                            print("Short poly: %s, Mahler Measure: %s" % (s(z), mm))
+                        else:
+                            print(s(z))
+    end = time.time()
+    timeTaken = end - start
+    print('program end, time taken:', timeTaken)  
