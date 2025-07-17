@@ -1,0 +1,74 @@
+# Working in integer polynomial ring, with variable z
+R.<z> = PolynomialRing(ZZ)
+
+# Function to find Mahler measure of p
+def findMM(p):
+    # Find roots
+    g = p.roots(CC)
+    size = len(g)
+    mm = 1
+
+    # Compute Mahler measure
+    for i in range(size):
+        new = abs(g[i][0])
+        if new > 1:
+            mm = new*mm
+            
+    return(mm)
+
+# Function to find length 9 reciprocal multiple of a given polynomial
+# Inputs: 
+# p: a reciprocal, non-cyclotomic polynomial
+# printMM: Boolean, output Mahler measure with polynomial? Yes = 1, No = 0
+def FindL9RecipPolys(p,printMM):
+    # Find cyclotomic factors of p
+    p2 = p.subs(z=-z)
+    p3 = p.subs(z=z^2)
+    p4 = p.subs(z=-z^2)
+    p5 = gcd(p, p2*p3*p4)
+    # Remove cyclotomic factors of p, leaving the non-cyclotomic irreducible
+    min_p = p/p5
+
+    # Find house and alpha of p
+    g = p.roots(CC)
+    size = len(g)
+    house = 0
+
+    for i in range(size):
+        new = abs(g[i][0])
+        if new > house:
+            house = new
+            alpha = g[i][0]
+            
+    # Compute upper bound for d_1
+    max_d1 = floor(log(9-1)/log(house))
+    # Loop over d_1 and e_1
+    for d1 in range(max_d1):
+        for e1 in [-1,1]:
+            # Compute upper bound for d_2
+            max_d2 = floor((log(9-2)-log(abs(alpha^(d1+1) + e1)))/log(house))
+            # Loop over d_2 and e_2
+            for d2 in range(max_d2 +1):
+                for e2 in [-1,1]:
+                    # Compute upper bound for d_3
+                    max_d3 = floor((log(9-3) - log(abs(alpha^(d1+1+d2) + e1*alpha^d2 + e2)))/log(house))
+                    # Loop over d_3 and e_3
+                    for d3 in range(max_d3 +1):
+                        for e3 in [-1,1]:
+                            # Compute upper bound for d_4
+                            max_d4 = floor((log(9-4) - log(abs(alpha^(d1+1+d2+d3) + e1*alpha^(d2+d3) + e2*alpha^d3 + e3)))/log(house))
+                            # Loop over d_4 and e_4
+                            for d4 in range(max_d4 +1):
+                                for e4 in [-1,1]:
+                                    # Generate polynomial
+                                    n = 2*(d1+1) + 2*d2 + 2*d3 + 2*d4
+                                    s = z^n + e1*z^(n-d1-1) + e2*z^(n-d1-1-d2) + e3*z^(n-d1-1-d2-d3) + e4*z^(n-d1-1-d2-d3-d4) + e3*z^(n-d1-1-d2-d3-2*d4) + e2*z^(n-d1-1-d2-2*d3-2*d4) + e1*z^(n-d1-1-2*d2-2*d3-2*d4) + 1
+                                    # If it is a multiple of the irreducible, return polynomial
+                                    if gcd(min_p(z), s(z)) != 1:
+                                        if printMM:
+                                            mm = findMM(s)
+                                            print("Short poly: %s, Mahler Measure: %s" % (s(z), mm))
+                                        else:
+                                            print(s(z))
+
+    print('program end')  
