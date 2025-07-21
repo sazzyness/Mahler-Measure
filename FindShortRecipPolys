@@ -1,0 +1,244 @@
+# Working in integer polynomial ring, with variable z
+R.<z> = PolynomialRing(ZZ)
+# Booleans for debugging
+debug = 0
+verbose = 0
+
+
+
+# Function to find the Mahler measure of a reciprocal polynomial p
+# Input: a reciprocal polynomial p
+# Output: vector with Mahler measure and house of p
+def findRecipMM(p):
+    # converting p(z) to q(z+1/z)
+    R.<x,y> = PolynomialRing(ZZ)
+    p = p.subs(z=y)
+    p1 = y^2 - x*y + 1
+    q = p.resultant(p1,y)
+
+    q1 = derivative(q,x)
+
+    # finding roots
+    q = R(q/(gcd(q, q1)))
+    roots = q.univariate_polynomial().roots(CC)
+    deg = len(roots)
+
+    # calculating Mahler measure and house
+    mm = 1
+    house = 0
+    for i in range(deg):
+        root = roots[i][0]
+        theta = abs(root + sqrt(root^2 -4))/2
+        new = max(theta, 1/theta)
+        mm = mm*new
+        if new>house:
+            house = new
+
+    return(mm, house)
+
+
+
+# Funtion to find upper bound of d_i based on previois d_i's and e_i's 
+# as per equation (9) based on Lemma 4.3
+# Input:
+# d: a vector with the i-1 previous d_i's
+# e: a vector with the i-1 e's being used
+# i: an integer, cuurent i being calculated
+# alpha: complex number, the alpha of the polynomial we are trying to find short multiples of
+# l: an integer, the length of the polynomials we are searching for
+# Output: maxD, an integer, the uppder bound for the current d_i
+def FindMaxDi(d, e, i, alpha, l):
+    testL = 1
+    for j in range(i):
+        testL *= alpha^d[j]
+        testL += e[j]
+    maxD = floor((log(l-1-i) - log(abs(testL)))/(log(abs(alpha))))
+    if debug and verbose:
+        print('i: ', i+1, ' max d: ', maxD)
+    if maxD < 0:
+        maxD = 0
+    return(maxD)
+
+
+
+# Function to generate polynomials based on d_i's and e_is
+# Input:
+# dim: an integer, the number of d_i's/e_i's necessary
+# d: a dim-sized vector, with the current d_i's being considered
+# e: a dim-sized vector, with the current e_i's being considered
+# isEven: a boolean, whether the length of polynomials we are searching for is even
+def FindPolys(d, e, dim, isEven):
+    testP = 1
+    if isEven:
+        for k in range(dim-1):
+            testP *= z^(d[k])
+            testP += e[k]
+        testP *= z^d[dim-1]
+        testP += e[dim-1]*e[dim-2]
+        for k in range(dim-1):
+            testP *= z^d[dim-k-2]
+            if (dim-k-3 != -1):
+                testP += e[dim-1]*e[dim-k-3]
+            else:
+                testP += e[dim-1]
+    else:
+        for k in range(dim):
+            testP *= z^(d[k])
+            testP += e[k]
+        for k in range(dim):
+            testP *= z^d[dim-1-k]
+            if (dim-k-2 != -1):
+                testP += e[dim-k-2]
+            else:
+                testP += 1
+                
+    return(testP)
+
+
+
+# Find length l reciprocal multiples of polynomial p
+def FindShortRecipPolys(p, l, printMM):
+    import time
+    start = time.time()
+    
+    isEven = 0
+    if l%2 == 0:
+        isEven = 1
+        
+    # Find number of d_i's and e_i's required
+    dim = floor(l/2)
+    if debug:
+        print(dim)
+    
+    # Find cyclotomic factors of p
+    p2 = p.subs(z=-z)
+    p3 = p.subs(z=z^2)
+    p4 = p.subs(z=-z^2)
+    p5 = gcd(p, p2*p3*p4)
+    # Remove cyclotomic factors of p, leaving the non-cyclotomic irreducible
+    min_p = p/p5
+
+    # Find house and alpha of p
+    g = p.roots(CC)
+    size = len(g)
+    house = 0
+
+    for i in range(size):
+        new = abs(g[i][0])
+        if new > house:
+            house = new
+            alpha = g[i][0]
+            
+    # Setup vectors for values of d_i, e_i, and maxD_i
+    maxD = zero_vector(SR, dim)
+    d = zero_vector(SR, dim)
+    e = zero_vector(SR, dim)
+    
+    # initial values
+    maxD[0] = floor(log(l-1)/log(house))
+    d[0] = 0
+    i = 0
+    
+    # Loop through all possible d_1 (here as d[0])
+    for w in range(maxD[0]):
+        d[0] = w+1
+        if debug and verbose:
+            print('d1: ', d[0])
+        for k in range(2):
+            e[0] = (-1)^k
+            # go to end of first branch
+            for m in range(dim-1):
+                e[m+1] = 1
+                maxD[m+1] = FindMaxDi(d, e, m+1, alpha, l)+1
+            i = dim-1
+            while i < dim:
+                if debug and verbose:
+                    print('level: ', i+1)
+                # if at highest level
+                if i == dim-1:
+                    if debug and verbose:
+                        print('entering final compuation loop..')
+                    # for all values of e and d of final level
+                    for m in range(2):
+                        e[i] = (-1)^m
+                        maxD[i] = FindMaxDi(d, e, i, alpha, l) + 1
+                        for j in range(maxD[i]):
+                            d[i] = j
+                            if debug:
+                                print(d, e, maxD)
+                            # check gcd, i.e., primitive
+                            isCalc = d[0]
+                            for g in range(dim-1):
+                                isCalc = gcd(isCalc, d[g+1])
+                            if isCalc:
+                                # compute polynomial
+                                s = FindPolys(d, e, dim, isEven)
+                                if debug and verbose:
+                                    print('computed polynomial...')
+                                if debug:
+                                    print(s.expand())
+                                # if it is a multiple of min poly, output
+                                if gcd(min_p(z), s(z)) != 1:
+                                    if printMM:
+                                        # find Mahler measure
+                                        mm = findRecipMM(s)
+                                        print("Short poly: %s, Mahler Measure: %s" % (s(z).expand(), mm[0]))
+                                    else:
+                                        print(s(z).expand())
+                    # if at max d1, exit
+                    if d[0] == maxD[0]:
+                        if debug and verbose:
+                            print('max d1 reached, exiting loop...')
+                        i += 1
+                    # otherwise, move to lower level
+                    else:
+                        i -= 1
+                                
+                elif i < dim-1:
+                    # if at lowest level, exit
+                    if i == 0:
+                        break
+                    # if values at this level have not been computed yet, compute them
+                    elif (d[i] == 0) and (maxD[i] == 0):
+                        if debug and verbose:
+                            print('starting reset, finding new maxD', i+1, '...')
+                        e[i] = 1
+                        maxD[i] = FindMaxDi(d, e, i, alpha, l)+1
+                        if debug and verbose:
+                            print('new max d', i+1, ' found: ', maxD[i])
+                        i += 1
+                    # if maximum d for level is reached
+                    elif d[i] == maxD[i]:
+                        if debug and verbose:
+                            print('max d', i+1, 'reached')
+                        # if e = 1, switch to -1 and compute new values
+                        if e[i] == 1:
+                            if debug and verbose:
+                                print('changing e')
+                            e[i] = -1
+                            d[i] = 0
+                            maxD[i] = FindMaxDi(d, e, i, alpha, l)+1
+                            if debug and verbose:
+                                print('new max d', i+1, ' found: ', maxD[i])
+                        # otherwise, reset and move to lower level
+                        else:
+                            if debug and verbose:
+                                print('finished with e at this level, resetting and decreasing level')
+                            d[i] = 0
+                            maxD[i] = 0
+                            i -= 1
+                    # if maxD for this level is computed, and d still hasnt reached it, increase d and proceed to next level
+                    elif d[i] != maxD[i]:
+                        if debug and verbose:
+                            print('entered changing stage')
+                        if debug:
+                            print(d, maxD, e)
+                        d[i] += 1
+                        if debug:
+                            print(d, maxD, e)
+                        i += 1
+                    elif maxD[0] == 1:
+                        maxD[i+1] = maxD(d, e, i+1, house, l)+1
+    end = time.time()
+    timeTaken = end - start                    
+    print('program end, time taken: ', timeTaken)
