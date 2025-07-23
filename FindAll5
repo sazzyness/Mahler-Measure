@@ -1,0 +1,105 @@
+# Working in integer polynomial ring, with variable z
+R.<z> = PolynomialRing(ZZ)
+
+
+# Function to primitise given polynomial p
+def primitise(p):
+    d = p.degree(z)
+
+    if (d < 1):
+        return(p)
+    
+    g = d
+
+    h = p.list()
+    for j in range(d-1):
+        if h[d-j-1] != 0:
+            g = gcd(g,j+1)
+        
+    primP = p.parent(p.list()[::g])
+
+    return(primP)
+
+
+# Function to find the Mahler measure of a reciprocal polynomial p
+# Input: a reciprocal polynomial p
+# Output: vector with Mahler measure and house of p
+def findRecipMM(p):
+    # converting p(z) to q(z+1/z)
+    R.<x,y> = PolynomialRing(ZZ)
+    p = p.subs(z=y)
+    p1 = y^2 - x*y + 1
+    q = p.resultant(p1,y)
+
+    q1 = derivative(q,x)
+
+    # finding roots
+    q = R(q/(gcd(q, q1)))
+    roots = q.univariate_polynomial().roots(CC)
+    deg = len(roots)
+
+    # calculating Mahler measure and house
+    mm = 1
+    house = 0
+    for i in range(deg):
+        root = roots[i][0]
+        theta = abs(root + sqrt(root^2 -4))/2
+        new = max(theta, 1/theta)
+        mm = mm*new
+        if new>house:
+            house = new
+
+    return(mm, house)
+
+
+# Function to find all length 5 reciprocal polynomials with house within a given range
+# Input:
+#  a: real number greater than 1, lower bound for house
+#  b: real number greater than a, upper bound for house
+def FindAll5(a, b):    
+    import time
+    start = time.time()
+
+    # find upper bound for d_1
+    max_d1 = floor(log(5-1)/log(a))
+    # loop over d_1
+    for d1 in range(max_d1):
+        # find upper bound for d_2
+        max_d2 = floor((log(5-1-1)-log(abs(a^(d1+1) - 1)))/log(abs(a)))
+        # loop over d_2
+        for d2 in range(max_d2 +1):
+            # check gcd = 1, to ensure only finding primitive polynomials
+            if gcd(d1+1,d2)==1:
+
+                n = 2*(d1+1) + 2*d2
+                # e_i used depends on parity of d_i, to ensure we only find one of P(z) and P(-z)
+                if mod(d1+1,2)==1:
+                    e1 = 1
+                    for e2 in [-1, 1]:
+                        # generate polynomial
+                        p = z^n + e1*z^(n-d1-1) + e2*z^(n-d1-1-d2) + e1*z^(n-d1-1-2*d2) + 1
+                        # ensure polynomial is primitive
+                        p = primitise(p)
+                        # find house and Mahler measure of p
+                        [mm, house] = findRecipMM(p)
+                        # if house within desired range, output
+                        if (house >= a) and (house <= b) :
+                            print("Short poly: %s, house: %s, Mahler Measure: %s" % (p, house, mm))
+                else:
+                    if mod(d2,2)==1:
+                        e2=1
+                        for e1 in [-1, 1]:
+                            # generate polynomial
+                            p = z^n + e1*z^(n-d1-1) + e2*z^(n-d1-1-d2) + e1*z^(n-d1-1-2*d2) + 1
+                            # ensure polynomial is primitive
+                            p = primitise(p)
+                            # find house and Mahler measure of p
+                            [mm, house] = findRecipMM(p)
+                            # if house within desired range, output
+                            if (house >= a) and (house <= b) :
+                                print("Short poly: %s, house: %s, Mahler Measure: %s" % (p, house, mm))
+
+
+    end = time.time()
+    timeTaken = end - start
+    print('program end, time taken:', timeTaken)        
