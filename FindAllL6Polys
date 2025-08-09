@@ -1,0 +1,338 @@
+# Working in integer polynomial ring, with variable z
+R.<z> = PolynomialRing(ZZ)
+# Booleans for debugging
+debug = false
+verbose = true
+
+# Function to primitise given polynomial p
+def primitise(p):
+    if debug and verbose:
+        print('entered primitise fnc')
+    d = p.degree(z)
+
+    if (d < 1):
+        return(p)
+    
+    g = d
+
+    h = p.list()
+    for j in range(d-1):
+        if h[d-j-1] != 0:
+            g = gcd(g,j+1)
+        
+    primP = p.parent(p.list()[::g])
+
+    if debug and verbose:
+        print('end of prim fnc')
+    return(primP)
+
+# Function to find the Mahler measure of a reciprocal polynomial p
+# Input: a reciprocal polynomial p
+# Output: vector with Mahler measure and house of p
+def findRecipMM(p):
+    # converting p(z) to q(z+1/z)
+    R.<x,y> = PolynomialRing(ZZ)
+    p = p.subs(z=y)
+    p1 = y^2 - x*y + 1
+    q = p.resultant(p1,y)
+
+    q1 = derivative(q,x)
+
+    # finding roots
+    q = R(q/(gcd(q, q1)))
+    roots = q.univariate_polynomial().roots(CC)
+    deg = len(roots)
+
+    # calculating Mahler measure and house
+    mm = 1
+    house = 0
+    for i in range(deg):
+        root = roots[i][0]
+        theta = abs(root + sqrt(root^2 -4))/2
+        new = max(theta, 1/theta)
+        mm = mm*new
+        if new>house:
+            house = new
+
+    return(mm, house)
+
+# Function to generate polynomials based on d_i's and e_is
+# Input:
+# di: a non-negative integer, current di being considered
+# ei: -1 or 1, current ei being considered
+# mm_bound: upper Mahler measure bound desired
+# a: positive real number greater than 1, lower house bound
+# b: positive real number greater than a, upper house bound
+def findPolys(d1, d2, d3, e1, e2, e3, mm_bound, a, b):
+    if gcd(gcd(d1,d2),d3)==1 :
+        n = 2*d1 + 2*d2 + d3
+        if debug:
+            print('n: ', n)
+
+        p = z^n + e1*z^(n-d1) + e2*z^(n-d1-d2) + e3*(e2*z^(n-d1-d2-d3) + e1*z^(n-d1-2*d2-d3) + 1)
+        p = primitise(p)
+        
+        [mm, house] = findRecipMM(p)
+
+        if house >= a and house <= b:
+            if mm <= mm_bound:
+                print("Short poly: %s, house: %s, Mahler Measure: %s" % (p, house, mm))
+
+# Function to find the upper bound for d3
+# Input:
+#  d1: a positive integer, the current d1 being considered
+#  d2: a non-negative integer, the current d2 being considered
+#  e1: -1 or 1, the current e1 being considered
+#  e2: -1 or 1, the current e2 being considered
+#  a: a real number >1, the lower bound for the house
+#  b: a real number >a, the upper bound for the house
+#  mm_bound_all: a real number, an upper bound for the Mahler measure
+def findMaxD3(d1, d2, e1, e2, a, b, mm_bound_all):
+    # initially attempt using the naive bound, if it does not return a useful bound, proceed to use the method based on Rouche's thm
+    max_d3 = naiveEstimate(d1, d2, e1, e2, a, b)
+    if max_d3 == 0:
+        max_d3 = rouche(d1, d2, e1, e2, mm_bound_all)
+    
+    return(max_d3)
+
+# Function to find the upper bound for d3 by using a computationally simpler method - but a method which does not work for all d1 and d2
+def naiveEstimate(d1, d2, e1, e2, a, b):
+    min_log = a^(d1+d2) - a^d2 - 1
+    if min_log < 0:
+        return (0)
+    
+    max_d3 = floor((log(6-1-2)-log(min_log))/log(abs(a)))
+    
+    if max_d3 <= 0:
+        return(0)
+    else:
+        return(max_d3)
+
+# Function to find d3 bound based on Rouches theorem
+# Input: 
+#  d1: a positive integer, the current d1 being considered
+#  d2: a non-negative integer, the current d2 being considered
+#  e1: -1 or 1, the current e1 being considered
+#  e2: -1 or 1, the current e2 being considered
+#  mm_bound_all: a real number, an upper bound for the Mahler measure
+# Output: max_d3_bound: an upper bound for d3
+def rouche(d1, d2, e1, e2, mm_bound_all):
+    if debug and verbose:
+        print('started rouche fnc, d1: %s, d2: %s, e1: %s, e2: %s' % (d1, d2, e1, e2))
+    #######################################
+    # Define P(z), P*(z)
+    #######################################
+    p = z^(d1+d2) + e1*z^(d2) + e2
+    p_rec = e2*z^(d1+d2) + e1*z^(d1) + 1
+    
+    ##################
+    # Find roots
+    ##################
+    g = p.roots(CC)
+    size_g = len(g)
+    if debug and verbose:
+        print('found roots', g)
+        
+    #################################################
+    # Finding e small enough that no circles overlap
+    # with  eachother    
+    #################################################
+    size = 0
+
+    for i in range(size_g):
+        new = abs(g[i][0])
+        if new > 1:
+            size += 1
+              
+    g1 = [1..size] 
+    alpha_vec = [1..size]
+    count = 0
+    for i in range(size_g):
+        new = abs(g[i][0])
+        if new > 1:
+            g1[count] = new
+            alpha_vec[count] = g[i][0]
+            count += 1
+
+    gap = 10000
+    for i in range(size):
+        for j in range(size-i):
+            if (i != j):
+                alpha1 = alpha_vec[i]
+                alpha2 = alpha_vec[i+j]
+                new_gap = sqrt((alpha1.real() - alpha2.real())^2 + (alpha1.imag() - alpha2.imag())^2)
+                if new_gap < gap and new_gap > 0:
+                    gap = new_gap
+            
+    if size == 1:
+        gap = g1[0]
+    
+    e = gap/2
+    
+    mm_bound = 1
+    for i in range(size):
+        val = max(1, g1[i]-e)
+        mm_bound = mm_bound*val
+
+    #########################################################    
+    # Ensuring e small enough s.t. prod(|alpha_i| - e) > 1.25
+    #########################################################
+    if (size==0) :
+        return(0)    
+        
+    if debug and verbose:
+        print('finding e, current mm bound:', mm_bound)
+    while mm_bound <= mm_bound_all:
+        e = 0.9*e
+        mm_bound = 1
+
+        for i in range(size):
+            # only considering circles which dont overlap with unit circle
+            val = max(1, g1[i]-e)
+            mm_bound = mm_bound*val
+            
+    if debug and verbose:
+        print('found mm bound, e, g')
+
+    # Initialising values
+    max_B = 0
+    min_b = 100000
+    min_denom = 100000
+    for k in range(size_g):
+        if debug:
+            print("loop %s of %s" % (k, size_g))
+        alpha = g[k][0]
+
+    #############################################################    
+    #     Finding min|P(Z)|
+    #############################################################
+        f = taylor(p, z, alpha, size_g+1)  
+        f = f.subs(z = z+alpha)
+        a_coefs = f.coefficients()
+        size_a = len(a_coefs)
+
+        if size_a == 1:
+            llimit_term = abs(a_coefs[0][0])*e
+        elif a_coefs[0][1] == 0:
+            llimit_term = abs(a_coefs[1][0])*e
+            for i in range(size_a-2):
+                llimit_term -= abs(a_coefs[i+2][0])*e^(a_coefs[i+2][1])
+            while llimit_term < 0:
+                e=0.9*e
+                llimit_term = abs(a_coefs[1][0])*e
+                for i in range(size_a-2):
+                    llimit_term -= abs(a_coefs[i+2][0])*e^(a_coefs[i+2][1])
+        else:
+            llimit_term = abs(a_coefs[0][0])*e
+            for i in range(size_a-1):
+                llimit_term -= abs(a_coefs[i+1][0])*e^(a_coefs[i+1][1])
+            while llimit_term < 0:
+                e=0.9*e
+                llimit_term = abs(a_coefs[0][0])*e
+                for i in range(size_a-1):
+                    llimit_term -= abs(a_coefs[i+1][0])*e^(a_coefs[i+1][1])        
+        llimit_term = floor(llimit_term)
+
+        if (llimit_term >0) and (llimit_term < min_b):
+            min_b = llimit_term
+
+        if debug and verbose:
+            print('subbed in P')
+
+
+    ####################################################################    
+    #     Finding max|P*(Z)|
+    ####################################################################
+        f_rec = taylor(p_rec, z, alpha, size_g+1) 
+        f_rec = f_rec.subs(z = z+alpha)
+        b_coefs = f_rec.coefficients()
+        size_b = len(b_coefs)
+
+        ulimit_term = abs(b_coefs[0][0])
+        for i in range(size_b-1):
+            ulimit_term += abs(b_coefs[i+1][0])*e^(b_coefs[i+1][1])
+
+        if ulimit_term > max_B:
+            max_B = ulimit_term
+            
+        if debug and verbose:
+            print('subbed in P*')
+
+
+    ##############################################    
+    #     Calculating d3 bound
+    ##############################################
+        denom = log(abs(alpha) - e)
+        if denom < min_denom:
+            min_denom = denom
+
+    max_d3_bound = ceil(log(max_B/min_b)/min_denom)
+    if debug and verbose:
+        print('found d3 bound')
+
+    return(max_d3_bound)
+
+# Function to find all length 6 monic reciprocal non-cyclotomic polynomials with house within a given range and Mahler measure less than some bound
+# Input:
+#  a: a real number >1, the lower house bound
+#  b: a real number >a, the upper house bound
+#  mm_bound: a real number, the upper bound on the Mahler measure
+#   use 1.25 for tiny, 1.3 for small
+def FindAllL6Polys(a, b, mm_bound):
+    import time
+    start = time.time()
+
+    # Compute upper bound for d_1
+    max_d1 = floor(log(6-1)/log(a))
+    # Loop over d_1
+    for d1 in range(max_d1):
+        # Compute upper bound for d_2
+        max_d2 = floor((log(6-1-1)-log(abs(a^(d1+1) - 1)))/log(abs(a)))
+        if(debug):
+            print('max d2: ', max_d2)
+        # Loop over d_2 and e_2
+        for d2 in range(max_d2 +1):
+            if mod(d1+1,2)==1:
+                e1 = 1
+                for e2 in [-1,1]:
+                    # Compute upper bound for d_3
+                    max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
+                    if debug and verbose:
+                        print('done with rouche, bound: ', max_d3)
+                    # Loop over d_3 and e_3
+                    for e3 in [-1,1]:   
+                        for d3 in range(max_d3+1):
+                            # Generate polynomial
+                            findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
+
+            else:
+                if mod(d2,2)==1:
+                    e2 = 1
+
+                    for e1 in [-1,1]:
+                        max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
+                        if debug and verbose:
+                            print('done with rouche, bound: ', max_d3)
+
+                        for e3 in [-1,1]:   
+                            for d3 in range(max_d3+1):
+                                findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
+
+                else:
+                    for e1 in [-1,1]:
+                        for e2 in [-1,1]:
+                            max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
+                            if debug and verbose:
+                                print('done with rouche, bound: ', max_d3)
+
+                            for d3 in range(max_d3+1):
+                                if mod(d3,2)==1:
+                                    e3 = 1        
+                                    findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
+
+
+
+
+    end = time.time()
+    timeTaken = end - start
+    print('program end, time taken:', timeTaken)   
