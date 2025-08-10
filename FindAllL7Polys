@@ -96,8 +96,8 @@ def findMaxD3(d1, d2, e1, e2, a, b, mm_bound_all):
 
 # Function to find the upper bound for d3 by using a computationally simpler method - but a method which does not work for all d1 and d2
 def naiveEstimate(d1, d2, e1, e2, a, b):
-    # if d1=d2, i.e., if Q is cyclotomic
-    if d1==d2:
+    # if Q is cyclotomic
+    if d1==d2 and e2==1:
         min_log = (a^(3*d1)-1)/(a^d1 + 1)
     else:
         # if Q is not cyclotomic
@@ -308,24 +308,29 @@ def FindAllL7Polys(a, b, mm_bound):
                     e2 = 1
 
                     for e1 in [-1,1]:
+                        # Compute upper bound for d_3
                         max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
                         if debug and verbose:
                             print('done with rouche, bound: ', max_d3)
-
+                        # Loop over d_3 and e_3
                         for e3 in [-1,1]:   
                             for d3 in range(max_d3+1):
+                                # Generate polynomial
                                 findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
 
                 else:
+                    # Loop over e_1 and e_2
                     for e1 in [-1,1]:
                         for e2 in [-1,1]:
+                            # Compute upper bound for d_3
                             max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
                             if debug and verbose:
                                 print('done with rouche, bound: ', max_d3)
-
+                            # Loop over d_3
                             for d3 in range(max_d3+1):
                                 if mod(d3,2)==1:
-                                    e3 = 1        
+                                    e3 = 1      
+                                    # Generate polynomial
                                     findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
 
     end = time.time()
