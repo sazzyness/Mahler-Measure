@@ -308,30 +308,31 @@ def FindAllL6Polys(a, b, mm_bound):
             else:
                 if mod(d2,2)==1:
                     e2 = 1
-
+                    # Loop over e_1
                     for e1 in [-1,1]:
+                        # Compute upper bound for d_3
                         max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
                         if debug and verbose:
                             print('done with rouche, bound: ', max_d3)
-
+                        # Loop over d_3 and e_3
                         for e3 in [-1,1]:   
                             for d3 in range(max_d3+1):
+                                # Generate polynomial
                                 findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
 
                 else:
                     for e1 in [-1,1]:
                         for e2 in [-1,1]:
+                            # Compute upper bound for d_3
                             max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
                             if debug and verbose:
                                 print('done with rouche, bound: ', max_d3)
-
+                            # Loop over d_3 
                             for d3 in range(max_d3+1):
                                 if mod(d3,2)==1:
                                     e3 = 1        
+                                    # Generate polynomial
                                     findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
-
-
-
 
     end = time.time()
     timeTaken = end - start
