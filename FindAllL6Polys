@@ -92,8 +92,10 @@ def findMaxD3(d1, d2, e1, e2, a, b, mm_bound_all):
     max_d3 = naiveEstimate(d1, d2, e1, e2, a, b)
     if max_d3 == 0:
         max_d3 = rouche(d1, d2, e1, e2, mm_bound_all)
-    
-    return(max_d3)
+    if max_d3 <= 0:
+        return(0)
+    else:
+        return(max_d3)
 
 # Function to find the upper bound for d3 by using a computationally simpler method - but a method which does not work for all d1 and d2
 def naiveEstimate(d1, d2, e1, e2, a, b):
@@ -192,83 +194,138 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
             mm_bound = mm_bound*val
             
     if debug and verbose:
-        print('found mm bound, e, g')
+        print('found mm bound, e, g: ', mm_bound, e, g1)
 
     # Initialising values
-    max_B = 0
-    min_b = 100000
-    min_denom = 100000
-    for k in range(size_g):
+    max_d3_bound = 0
+    for k in range(size):
+        alpha = alpha_vec[k]
         if debug:
-            print("loop %s of %s" % (k, size_g))
-        alpha = g[k][0]
+            print("loop %s of %s, alpha: " % (k+1, size), alpha)
+        
+        if (abs(alpha) - e) > 1:
+            deg = 0
+            for i in range(size):
+                if (abs(alpha_vec[i]) - e) > 1:
+                    deg += 1
+            ############################################################################    
+            #     Finding min|P(Z)|, max|P*(z)| and computing bounds for each alpha_j
+            ############################################################################
+            # taylor expanding P(z) about alpha_i
+            f = taylor(p, z, alpha, deg+1)  
+            # finding coefficients 
+            f = f.subs(z = z+alpha)
+            a_coefs = f.coefficients()
+            size_a = len(a_coefs)
+    
+            # taylor expanding P*(z) about alpha_j
+            f_rec = taylor(p_rec, z, alpha, deg+1) 
+            # finding coefficients
+            f_rec = f_rec.subs(z = z+alpha)
+            b_coefs = f_rec.coefficients()
+            size_b = len(b_coefs)
+            current_bound = 0
 
-    #############################################################    
-    #     Finding min|P(Z)|
-    #############################################################
-        f = taylor(p, z, alpha, size_g+1)  
-        f = f.subs(z = z+alpha)
-        a_coefs = f.coefficients()
-        size_a = len(a_coefs)
-
-        if size_a == 1:
-            llimit_term = abs(a_coefs[0][0])*e
-        elif a_coefs[0][1] == 0:
-            llimit_term = abs(a_coefs[1][0])*e
-            for i in range(size_a-2):
-                llimit_term -= abs(a_coefs[i+2][0])*e^(a_coefs[i+2][1])
-            while llimit_term < 0:
-                e=0.9*e
+            # finding d3 bound using current e and alpha_i
+            if size_a == 1:
+                llimit_term = abs(a_coefs[0][0])*e
+            elif a_coefs[0][1] == 0:
                 llimit_term = abs(a_coefs[1][0])*e
                 for i in range(size_a-2):
                     llimit_term -= abs(a_coefs[i+2][0])*e^(a_coefs[i+2][1])
-        else:
-            llimit_term = abs(a_coefs[0][0])*e
-            for i in range(size_a-1):
-                llimit_term -= abs(a_coefs[i+1][0])*e^(a_coefs[i+1][1])
-            while llimit_term < 0:
-                e=0.9*e
+                
+                ulimit_term = abs(b_coefs[0][0])
+                for i in range(size_b-1):
+                    ulimit_term += abs(b_coefs[i+1][0])*e^(b_coefs[i+1][1])
+                if debug and verbose:
+                    print('e: ', e, 'min P: ', llimit_term, 'max P*: ', ulimit_term)
+                denom = log(abs(alpha) - e)
+                if debug and verbose:
+                    print('denom: ', denom)
+                current_bound = ceil(log(ulimit_term/llimit_term)/denom)
+                if debug and verbose:
+                    print('current bound: ', current_bound)
+                
+                # Optimising e
+                new_e = 0.9*e
+                new_L = abs(a_coefs[1][0])*new_e
+                for i in range(size_a-2):
+                    new_L -= abs(a_coefs[i+2][0])*new_e^(a_coefs[i+2][1])
+                new_U = abs(b_coefs[0][0])
+                for i in range(size_b-1):
+                    new_U += abs(b_coefs[i+1][0])*new_e^(b_coefs[i+1][1])
+                new_denom = log(abs(alpha) - new_e)
+                new_bound = ceil(log(new_U/new_L)/new_denom)
+                if debug and verbose:
+                    print('new bound: ', new_bound)
+                if new_bound < current_bound:
+                    e = new_e
+                    current_bound = new_bound
+                while new_bound <= current_bound:
+                    e = 0.9*e
+                    new_L = abs(a_coefs[1][0])*e
+                    for i in range(size_a-2):
+                        new_L -= abs(a_coefs[i+2][0])*e^(a_coefs[i+2][1])
+                    new_U = abs(b_coefs[0][0])
+                    for i in range(size_b-1):
+                        new_U += abs(b_coefs[i+1][0])*e^(b_coefs[i+1][1])
+                    new_denom = log(abs(alpha) - e)
+                    new_bound = ceil(log(new_U/new_L)/new_denom)
+                    if debug and verbose:
+                        print('new bound: ', new_bound)
+                    if new_bound < current_bound:
+                        current_bound = new_bound                
+            else:
                 llimit_term = abs(a_coefs[0][0])*e
                 for i in range(size_a-1):
-                    llimit_term -= abs(a_coefs[i+1][0])*e^(a_coefs[i+1][1])        
-        llimit_term = floor(llimit_term)
+                    llimit_term -= abs(a_coefs[i+1][0])*e^(a_coefs[i+1][1])
+                ulimit_term = abs(b_coefs[0][0])
+                for i in range(size_b-1):
+                    ulimit_term += abs(b_coefs[i+1][0])*e^(b_coefs[i+1][1])
+                if debug and verbose:
+                    print('e: ', e, 'min P: ', llimit_term, 'max P*: ', ulimit_term)
+                denom = log(abs(alpha) - e)
+                if debug and verbose:
+                    print('denom: ', denom)
+                current_bound = ceil(log(ulimit_term/llimit_term)/denom)
+                if debug and verbose:
+                    print('current bound: ', current_bound)
+                
+                # Optimising e
+                new_e = 0.9*e
+                new_L = abs(a_coefs[1][0])*new_e
+                for i in range(size_a-1):
+                    new_L -= abs(a_coefs[i+1][0])*new_e^(a_coefs[i+1][1])
+                new_U = abs(b_coefs[0][0])
+                for i in range(size_b-1):
+                    new_U += abs(b_coefs[i+1][0])*new_e^(b_coefs[i+1][1])
+                new_denom = log(abs(alpha) - new_e)
+                new_bound = ceil(log(new_U/new_L)/new_denom)
+                if debug and verbose:
+                    print('new bound: ', new_bound)
+                if new_bound < current_bound:
+                    e = new_e
+                    current_bound = new_bound
+                while new_bound <= current_bound:
+                    e=0.9*e
+                    new_L = abs(a_coefs[1][0])*e
+                    for i in range(size_a-1):
+                        new_L -= abs(a_coefs[i+1][0])*e^(a_coefs[i+1][1])
+                    new_U = abs(b_coefs[0][0])
+                    for i in range(size_b-1):
+                        new_U += abs(b_coefs[i+1][0])*e^(b_coefs[i+1][1])
+                    new_denom = log(abs(alpha) - e)
+                    new_bound = ceil(log(new_U/new_L)/new_denom)
+                    if debug and verbose:
+                        print('new bound: ', new_bound)
+                    if new_bound < current_bound:
+                        current_bound = new_bound
+            # finding max d3 over all alpha_j
+            if current_bound > max_d3_bound:
+                max_d3_bound = current_bound
 
-        if (llimit_term >0) and (llimit_term < min_b):
-            min_b = llimit_term
-
-        if debug and verbose:
-            print('subbed in P')
-
-
-    ####################################################################    
-    #     Finding max|P*(Z)|
-    ####################################################################
-        f_rec = taylor(p_rec, z, alpha, size_g+1) 
-        f_rec = f_rec.subs(z = z+alpha)
-        b_coefs = f_rec.coefficients()
-        size_b = len(b_coefs)
-
-        ulimit_term = abs(b_coefs[0][0])
-        for i in range(size_b-1):
-            ulimit_term += abs(b_coefs[i+1][0])*e^(b_coefs[i+1][1])
-
-        if ulimit_term > max_B:
-            max_B = ulimit_term
-            
-        if debug and verbose:
-            print('subbed in P*')
-
-
-    ##############################################    
-    #     Calculating d3 bound
-    ##############################################
-        denom = log(abs(alpha) - e)
-        if denom < min_denom:
-            min_denom = denom
-
-    max_d3_bound = ceil(log(max_B/min_b)/min_denom)
     if debug and verbose:
-        print('found d3 bound')
+        print('done with rouche')
 
     return(max_d3_bound)
 
@@ -298,10 +355,12 @@ def FindAllL6Polys(a, b, mm_bound):
                     # Compute upper bound for d_3
                     max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
                     if debug and verbose:
-                        print('done with rouche, bound: ', max_d3)
+                        print('found d3 bound: ', max_d3)
                     # Loop over d_3 and e_3
                     for e3 in [-1,1]:   
                         for d3 in range(max_d3+1):
+                            if debug:
+                                print('d1: %s, d2: %s, d3: %s, e1: %s, e2: %s, e3: %s' % (d1+1, d2, d3, e1, e2, e3))
                             # Generate polynomial
                             findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
 
@@ -313,10 +372,12 @@ def FindAllL6Polys(a, b, mm_bound):
                         # Compute upper bound for d_3
                         max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
                         if debug and verbose:
-                            print('done with rouche, bound: ', max_d3)
+                            print('found d3 bound: ', max_d3)
                         # Loop over d_3 and e_3
                         for e3 in [-1,1]:   
                             for d3 in range(max_d3+1):
+                                if debug:
+                                    print('d1: %s, d2: %s, d3: %s, e1: %s, e2: %s, e3: %s' % (d1+1, d2, d3, e1, e2, e3))
                                 # Generate polynomial
                                 findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
 
@@ -326,11 +387,13 @@ def FindAllL6Polys(a, b, mm_bound):
                             # Compute upper bound for d_3
                             max_d3 = findMaxD3(d1+1, d2, e1, e2, a, b, mm_bound)
                             if debug and verbose:
-                                print('done with rouche, bound: ', max_d3)
+                                print('found d3 bound: ', max_d3)
                             # Loop over d_3 
                             for d3 in range(max_d3+1):
                                 if mod(d3,2)==1:
-                                    e3 = 1        
+                                    e3 = 1  
+                                    if debug:
+                                        print('d1: %s, d2: %s, d3: %s, e1: %s, e2: %s, e3: %s' % (d1+1, d2, d3, e1, e2, e3))
                                     # Generate polynomial
                                     findPolys(d1+1, d2, d3, e1, e2, e3, mm_bound, a, b)
 
