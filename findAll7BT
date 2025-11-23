@@ -173,6 +173,12 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
             # only considering circles which dont overlap with unit circle
             val = max(1, g1[i]-e)
             mm_bound = mm_bound*val
+            
+    for i in range(size):
+        if g1[i] - mm_bound_all > 0:
+            test_e = g1[i] - mm_bound_all
+            if test_e > e:
+                e = test_e
            
     if debug and verbose:
         print('found mm bound, e, g: ', mm_bound, e, g1)
