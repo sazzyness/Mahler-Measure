@@ -193,33 +193,37 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
             val = max(1, g1[i]-e)
             mm_bound = mm_bound*val
             
+    for i in range(size):
+        if g1[i] - mm_bound_all > 0:
+            test_e = g1[i] - mm_bound_all
+            if test_e > e:
+                e = test_e
+            
     if debug and verbose:
         print('found mm bound, e, g: ', mm_bound, e, g1)
 
     # Initialising values
     max_d3_bound = 0
+    main_e = e
     for k in range(size):
         alpha = alpha_vec[k]
         if debug:
             print("loop %s of %s, alpha: " % (k+1, size), alpha)
         
-        if (abs(alpha) - e) > 1:
-            deg = 0
-            for i in range(size):
-                if (abs(alpha_vec[i]) - e) > 1:
-                    deg += 1
+        if (abs(alpha) - main_e) > 1:
+            e = main_e
             ############################################################################    
             #     Finding min|P(Z)|, max|P*(z)| and computing bounds for each alpha_j
             ############################################################################
             # taylor expanding P(z) about alpha_i
-            f = taylor(p, z, alpha, deg+1)  
+            f = taylor(p, z, alpha, size+1)  
             # finding coefficients 
             f = f.subs(z = z+alpha)
             a_coefs = f.coefficients()
             size_a = len(a_coefs)
     
             # taylor expanding P*(z) about alpha_j
-            f_rec = taylor(p_rec, z, alpha, deg+1) 
+            f_rec = taylor(p_rec, z, alpha, size+1) 
             # finding coefficients
             f_rec = f_rec.subs(z = z+alpha)
             b_coefs = f_rec.coefficients()
