@@ -113,7 +113,7 @@ def naiveEstimate(d1, d2, e1, e2, a, b):
         return(max_d3)
 
 # Function to find d3 bound based on Rouches theorem
-# Input: 
+# Input:
 #  d1: a positive integer, the current d1 being considered
 #  d2: a non-negative integer, the current d2 being considered
 #  e1: -1 or 1, the current e1 being considered
@@ -128,7 +128,7 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
     #######################################
     p = z^(d1+d2) + e1*z^(d2) + e2
     p_rec = e2*z^(d1+d2) + e1*z^(d1) + 1
-    
+   
     ##################
     # Find roots
     ##################
@@ -136,7 +136,7 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
     size_g = len(g)
     if debug and verbose:
         print('found roots', g)
-        
+       
     #################################################
     # Finding e small enough that no circles overlap
     # with  eachother    
@@ -147,8 +147,8 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
         new = abs(g[i][0])
         if new > 1:
             size += 1
-              
-    g1 = [1..size] 
+             
+    g1 = [1..size]
     alpha_vec = [1..size]
     count = 0
     for i in range(size_g):
@@ -167,12 +167,12 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
                 new_gap = sqrt((alpha1.real() - alpha2.real())^2 + (alpha1.imag() - alpha2.imag())^2)
                 if new_gap < gap and new_gap > 0:
                     gap = new_gap
-            
+           
     if size == 1:
         gap = g1[0]
-    
+   
     e = gap/2
-    
+   
     mm_bound = 1
     for i in range(size):
         val = max(1, g1[i]-e)
@@ -183,7 +183,7 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
     #########################################################
     if (size==0) :
         return(0)    
-        
+       
     if debug and verbose:
         print('finding e, current mm bound:', mm_bound)
     while mm_bound <= mm_bound_all:
@@ -195,33 +195,37 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
             val = max(1, g1[i]-e)
             mm_bound = mm_bound*val
             
+    for i in range(size):
+        if g1[i] - mm_bound_all > 0:
+            test_e = g1[i] - mm_bound_all
+            if test_e > e:
+                e = test_e
+           
     if debug and verbose:
         print('found mm bound, e, g: ', mm_bound, e, g1)
 
     # Initialising values
     max_d3_bound = 0
+    main_e = e
     for k in range(size):
         alpha = alpha_vec[k]
         if debug:
             print("loop %s of %s, alpha: " % (k+1, size), alpha)
-        
-        if (abs(alpha) - e) > 1:
-            deg = 0
-            for i in range(size):
-                if (abs(alpha_vec[i]) - e) > 1:
-                    deg += 1
+       
+        if (abs(alpha) - main_e) > 1:
+            e = main_e
             ############################################################################    
             #     Finding min|P(Z)|, max|P*(z)| and computing bounds for each alpha_j
             ############################################################################
             # taylor expanding P(z) about alpha_i
-            f = taylor(p, z, alpha, deg+1)  
-            # finding coefficients 
+            f = taylor(p, z, alpha, size+1)  
+            # finding coefficients
             f = f.subs(z = z+alpha)
             a_coefs = f.coefficients()
             size_a = len(a_coefs)
-    
+   
             # taylor expanding P*(z) about alpha_j
-            f_rec = taylor(p_rec, z, alpha, deg+1) 
+            f_rec = taylor(p_rec, z, alpha, size+1)
             # finding coefficients
             f_rec = f_rec.subs(z = z+alpha)
             b_coefs = f_rec.coefficients()
@@ -235,7 +239,7 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
                 llimit_term = abs(a_coefs[1][0])*e
                 for i in range(size_a-2):
                     llimit_term -= abs(a_coefs[i+2][0])*e^(a_coefs[i+2][1])
-                
+               
                 ulimit_term = abs(b_coefs[0][0])
                 for i in range(size_b-1):
                     ulimit_term += abs(b_coefs[i+1][0])*e^(b_coefs[i+1][1])
@@ -247,7 +251,7 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
                 current_bound = ceil(log((ulimit_term+1)/llimit_term)/denom)
                 if debug and verbose:
                     print('current bound: ', current_bound)
-                
+               
                 # Optimising e
                 new_e = 0.9*e
                 new_L = abs(a_coefs[1][0])*new_e
@@ -292,7 +296,7 @@ def rouche(d1, d2, e1, e2, mm_bound_all):
                 current_bound = ceil(log((ulimit_term+1)/llimit_term)/denom)
                 if debug and verbose:
                     print('current bound: ', current_bound)
-                
+               
                 # Optimising e
                 new_e = 0.9*e
                 new_L = abs(a_coefs[1][0])*new_e
